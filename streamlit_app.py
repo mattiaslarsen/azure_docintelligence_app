@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from azure.ai.formrecognizer import DocumentAnalysisClient
 from azure.core.credentials import AzureKeyCredential
 from pathlib import Path
+from io import BytesIO
 
 load_dotenv()
 
@@ -47,8 +48,12 @@ output_dir = st.text_input("Namn på output-mapp", "output")
 st.info("📏 **Filstorleksgränser:** Azure Document Intelligence accepterar max 500 MB per fil")
 
 if pdf_file:
+    # Läs filen EN gång och återanvänd
+    pdf_bytes = pdf_file.read()
+    pdf_stream = BytesIO(pdf_bytes)
+    
     # Visa filinfo
-    file_size_mb = pdf_file.size / (1024 * 1024)
+    file_size_mb = len(pdf_bytes) / (1024 * 1024)
     st.write(f"📁 **Vald fil:** {pdf_file.name}")
     st.write(f"📊 **Storlek:** {file_size_mb:.2f} MB")
     
@@ -68,9 +73,10 @@ if pdf_file:
                 
                 client = DocumentAnalysisClient(endpoint=endpoint, credential=AzureKeyCredential(key))
 
-                from io import BytesIO
-                poller = client.begin_analyze_document("prebuilt-layout", document=BytesIO(pdf_file.read()))
+                poller = client.begin_analyze_document("prebuilt-layout", document=pdf_stream)
                 result = poller.result()
+
+                st.write(f"📄 Antal sidor i analysresultat: {len(result.pages)}")
 
                 out_path = Path(output_dir)
                 out_path.mkdir(exist_ok=True)
