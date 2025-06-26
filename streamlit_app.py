@@ -7,6 +7,36 @@ from pathlib import Path
 
 load_dotenv()
 
+def table_to_markdown(table):
+    """Konverterar Azure Document Intelligence tabell till markdown-format"""
+    # Skapa 2D-array för tabellen
+    table_data = []
+    for row_idx in range(table.row_count):
+        row = []
+        for col_idx in range(table.column_count):
+            cell = next((c for c in table.cells if c.row_index == row_idx and c.column_index == col_idx), None)
+            cell_content = cell.content if cell else ""
+            row.append(cell_content)
+        table_data.append(row)
+    
+    if not table_data:
+        return ""
+    
+    # Skapa markdown-tabell
+    markdown_table = ""
+    
+    # Lägg till headers (första raden)
+    markdown_table += "| " + " | ".join(table_data[0]) + " |\n"
+    
+    # Lägg till separator-rad
+    markdown_table += "| " + " | ".join(["---"] * len(table_data[0])) + " |\n"
+    
+    # Lägg till data-rader
+    for row in table_data[1:]:
+        markdown_table += "| " + " | ".join(row) + " |\n"
+    
+    return markdown_table
+
 st.set_page_config(page_title="PDF till Tabell/Text med Azure", layout="centered")
 
 st.title("📄 Azure PDF-analys")
@@ -45,13 +75,23 @@ if pdf_file:
                 out_path = Path(output_dir)
                 out_path.mkdir(exist_ok=True)
 
-                # Spara text
+                # Spara text med tabeller integrerade
                 with open(out_path / "text.md", "w", encoding="utf-8") as f:
+                    # Skriv vanlig text först
                     for page in result.pages:
                         for line in page.lines:
                             f.write(line.content + "\n")
+                    
+                    # Lägg till tabeller i markdown-format
+                    if result.tables:
+                        f.write("\n## 📊 Tabeller\n\n")
+                        for i, table in enumerate(result.tables):
+                            f.write(f"### Tabell {i+1}\n\n")
+                            markdown_table = table_to_markdown(table)
+                            f.write(markdown_table)
+                            f.write("\n")
 
-                # Spara tabeller
+                # Spara tabeller som CSV också (för bakåtkompatibilitet)
                 import pandas as pd
                 table_count = 0
                 for i, table in enumerate(result.tables):
@@ -66,7 +106,7 @@ if pdf_file:
                     df.to_csv(out_path / f"table_{i+1}.csv", index=False)
                     table_count += 1
 
-                st.success(f"✅ **Klar!** Text sparad i `{output_dir}/text.md` och {table_count} tabell(er) i `.csv`-filer.")
+                st.success(f"✅ **Klar!** Text med markdown-tabeller sparad i `{output_dir}/text.md` och {table_count} tabell(er) i `.csv`-filer.")
                 
                 # Visa preview av text
                 with st.expander("📄 Förhandsvisning av text"):
