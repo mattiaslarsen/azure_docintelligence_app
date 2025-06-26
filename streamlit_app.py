@@ -8,6 +8,22 @@ from io import BytesIO
 
 load_dotenv()
 
+# Miljökonfiguration
+ENVIRONMENTS = {
+    "dev": {
+        "name": "🟢 Development (F0)",
+        "endpoint": os.getenv("AZURE_FORM_RECOGNIZER_ENDPOINT_DEV", "https://your-f0-endpoint.cognitiveservices.azure.com/"),
+        "key": os.getenv("AZURE_FORM_RECOGNIZER_KEY_DEV", "your-f0-key-here"),
+        "description": "F0 - Free tier, 500 pages/month"
+    },
+    "stage": {
+        "name": "🟡 Staging (S0)", 
+        "endpoint": os.getenv("AZURE_FORM_RECOGNIZER_ENDPOINT_STAGE", "https://standards0northeuropemattias.cognitiveservices.azure.com/"),
+        "key": os.getenv("AZURE_FORM_RECOGNIZER_KEY_STAGE", "your-s0-key-here"),
+        "description": "S0 - Standard tier, pay per page"
+    }
+}
+
 def table_to_markdown(table):
     """Konverterar Azure Document Intelligence tabell till markdown-format"""
     # Skapa 2D-array för tabellen
@@ -41,6 +57,26 @@ def table_to_markdown(table):
 st.set_page_config(page_title="PDF till Tabell/Text med Azure", layout="centered")
 
 st.title("📄 Azure PDF-analys")
+
+# Miljöväxling
+st.sidebar.header("⚙️ Miljökonfiguration")
+selected_env = st.sidebar.selectbox(
+    "Välj miljö:",
+    options=list(ENVIRONMENTS.keys()),
+    format_func=lambda x: ENVIRONMENTS[x]["name"],
+    index=0 if os.getenv("DEFAULT_ENVIRONMENT") == "dev" else 1
+)
+
+# Visa miljöinfo
+env_info = ENVIRONMENTS[selected_env]
+st.sidebar.info(f"**Aktiv miljö:** {env_info['name']}\n\n{env_info['description']}")
+
+# Kontrollera om miljö är konfigurerad
+if not env_info["endpoint"] or env_info["endpoint"].startswith("https://your-"):
+    st.sidebar.error("❌ Miljö inte konfigurerad i .env-fil")
+elif not env_info["key"] or env_info["key"].startswith("your-"):
+    st.sidebar.error("❌ API-nyckel saknas i .env-fil")
+
 pdf_file = st.file_uploader("Välj en PDF-fil", type=["pdf"])
 output_dir = st.text_input("Namn på output-mapp", "output")
 
@@ -64,11 +100,11 @@ if pdf_file:
     if output_dir:
         with st.spinner("🔍 Läser in och analyserar PDF..."):
             try:
-                endpoint = os.getenv("AZURE_FORM_RECOGNIZER_ENDPOINT")
-                key = os.getenv("AZURE_FORM_RECOGNIZER_KEY")
+                endpoint = env_info["endpoint"]
+                key = env_info["key"]
                 
                 if not endpoint or not key:
-                    st.error("❌ **Saknade miljövariabler!** Kontrollera AZURE_FORM_RECOGNIZER_ENDPOINT och AZURE_FORM_RECOGNIZER_KEY")
+                    st.error(f"❌ **Saknade miljövariabler för {env_info['name']}!** Kontrollera AZURE_FORM_RECOGNIZER_ENDPOINT_{selected_env.upper()} och AZURE_FORM_RECOGNIZER_KEY_{selected_env.upper()}")
                     st.stop()
                 
                 client = DocumentAnalysisClient(endpoint=endpoint, credential=AzureKeyCredential(key))
