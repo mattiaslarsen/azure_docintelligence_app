@@ -43,12 +43,13 @@ def table_to_markdown(table):
     markdown_table = ""
     
     # Lägg till headers (första raden)
-    markdown_table += "| " + " | ".join(table_data[0]) + " |\n"
+    headers = table_data[0]
+    markdown_table += "| " + " | ".join(headers) + " |\n"
     
     # Lägg till separator-rad
-    markdown_table += "| " + " | ".join(["---"] * len(table_data[0])) + " |\n"
+    markdown_table += "| " + " | ".join(["---"] * len(headers)) + " |\n"
     
-    # Lägg till data-rader
+    # Lägg till data-rader (från andra raden och framåt)
     for row in table_data[1:]:
         markdown_table += "| " + " | ".join(row) + " |\n"
     
@@ -144,9 +145,16 @@ if pdf_file:
                             cell = next((c for c in table.cells if c.row_index == row_idx and c.column_index == col_idx), None)
                             row.append(cell.content if cell else "")
                         rows.append(row)
-                    df = pd.DataFrame(rows)
-                    df.to_csv(out_path / f"table_{i+1}.csv", index=False)
-                    table_count += 1
+                    
+                    if rows:
+                        # Separera headers från data
+                        headers = rows[0] if rows else []
+                        data = rows[1:] if len(rows) > 1 else []
+                        
+                        # Skapa DataFrame med beskrivande kolumnnamn
+                        df = pd.DataFrame(data, columns=headers)
+                        df.to_csv(out_path / f"table_{i+1}.csv", index=False)
+                        table_count += 1
 
                 st.success(f"✅ **Klar!** Text med markdown-tabeller sparad i `{output_dir}/text.md` och {table_count} tabell(er) i `.csv`-filer.")
                 
