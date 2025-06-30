@@ -268,6 +268,8 @@ output/
 !README.md
 !requirements.txt
 !pyproject.toml
+!visionviews/
+!visionviews/*.md
 
 # Logs
 logs/
